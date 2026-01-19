@@ -16,7 +16,7 @@ This document explains the work done to port balena-engine from moby v23.0.18 to
 | Balena commits on top | 150+ |
 | Original v23 balena commits | 211 |
 | Commits merged upstream | ~60 |
-| Binary size (static, stripped) | ~55MB (amd64) |
+| Binary size (static, stripped) | ~47MB (amd64), ~45MB (arm64) |
 | Tested platforms | linux/amd64, linux/arm64 |
 
 ## Why v27 Instead of v28?
@@ -305,8 +305,49 @@ v27 upstream includes full swarm support which pulls in `github.com/moby/swarmki
 | Before stripping | ~70MB |
 | After stripping (`-s -w`) | ~61MB |
 | After swarm removal | ~55MB |
+| After `no_tracing` + `no_buildkit` | ~47MB |
 
-Total reduction: ~15MB (~21% smaller)
+Total reduction from original: ~23MB (~33% smaller)
+
+## Binary Size Optimization
+
+### Additional Optimizations (January 2026)
+
+Beyond swarm removal, two additional build tags were added to further reduce binary size:
+
+#### 1. `no_tracing` Build Tag (~2-3MB savings)
+
+Excludes OpenTelemetry tracing from containerd. The tracing plugin in `forks/balena-containerd` has `//go:build !no_tracing`, so adding this tag excludes it.
+
+#### 2. `no_buildkit` Build Tag (~3-4MB savings)
+
+Excludes BuildKit while preserving the legacy Dockerfile builder. This is appropriate for IoT devices that typically don't build images locally.
+
+**Files modified for `no_buildkit`:**
+- Added `//go:build !no_buildkit` to 22+ files in `builder/builder-next/`
+- Created stub files: `builder/builder-next/stub.go`, `builder/builder-next/exporter/stub.go`
+- Added nil checks in `api/server/backend/build/backend.go`
+- Added BuilderV1 fallback in `api/server/router/system/system_routes.go`
+
+**Legacy builder still works:**
+```bash
+balena-engine build -t myimage .  # Uses Dockerfile builder, not BuildKit
+```
+
+### Final DOCKER_BUILDTAGS
+
+```
+apparmor seccomp no_btrfs no_cri no_devmapper no_zfs exclude_disk_quota exclude_graphdriver_btrfs exclude_graphdriver_devicemapper exclude_graphdriver_zfs no_tracing no_buildkit
+```
+
+### CLI Version Fix
+
+The CLI version was showing "unknown-version" because ldflags only set daemon version variables. Fixed by adding CLI version ldflags to `hack/make/.go-autogen`:
+
+```bash
+-X "github.com/docker/cli/cli/version.Version=${VERSION}"
+-X "github.com/docker/cli/cli/version.GitCommit=${GITCOMMIT}"
+```
 
 ### Files Modified Summary
 

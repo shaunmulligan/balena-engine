@@ -124,7 +124,16 @@ GOPROXY=direct ./hack/with-go-mod.sh go get -d github.com/balena-os/balena-conta
 
 ## Build Tags
 
-Default build tags (set in Makefile): `apparmor seccomp no_btrfs no_cri no_devmapper no_zfs exclude_disk_quota exclude_graphdriver_btrfs exclude_graphdriver_devicemapper exclude_graphdriver_zfs`
+Default build tags (set in `docker-bake.hcl` and `Dockerfile`):
+```
+apparmor seccomp no_btrfs no_cri no_devmapper no_zfs exclude_disk_quota exclude_graphdriver_btrfs exclude_graphdriver_devicemapper exclude_graphdriver_zfs no_tracing no_buildkit
+```
+
+**Size-optimization tags:**
+- `no_tracing` - Excludes OpenTelemetry tracing from containerd (~2-3MB savings)
+- `no_buildkit` - Excludes BuildKit, keeps legacy Dockerfile builder (~3-4MB savings)
+
+**Note:** Legacy `docker build` still works with `no_buildkit` - it uses the Dockerfile builder instead of BuildKit.
 
 ## Test Environment Notes
 
@@ -154,10 +163,12 @@ docker run --rm --privileged \
 ## Current Project Status (January 2026)
 
 **Branch**: `balena/v27-rebase` (based on moby v27.5.1)
-**Status**: Feature complete, testing complete
+**Status**: Feature complete, testing complete, size-optimized
 
-| Test Suite | Status |
-|------------|--------|
+| Metric | Value |
+|--------|-------|
+| Binary size (amd64) | ~47 MB |
+| Binary size (arm64) | ~45 MB |
 | Unit tests | ✅ 524 pass, 3 skip |
 | Container integration | ✅ 135 pass |
 | Delta integration | ✅ 10 pass |
