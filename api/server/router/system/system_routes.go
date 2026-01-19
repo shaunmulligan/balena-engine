@@ -32,7 +32,13 @@ func (s *systemRouter) pingHandler(ctx context.Context, w http.ResponseWriter, r
 	w.Header().Add("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Add("Pragma", "no-cache")
 
-	builderVersion := build.BuilderVersion(s.features())
+	// If BuildKit is not available (nil), report legacy builder
+	var builderVersion types.BuilderVersion
+	if s.builder == nil {
+		builderVersion = types.BuilderV1
+	} else {
+		builderVersion = build.BuilderVersion(s.features())
+	}
 	if bv := builderVersion; bv != "" {
 		w.Header().Set("Builder-Version", string(bv))
 	}
@@ -149,6 +155,11 @@ func (s *systemRouter) getDiskUsage(ctx context.Context, w http.ResponseWriter, 
 	var buildCache []*types.BuildCache
 	if getBuildCache {
 		eg.Go(func() error {
+			if s.builder == nil {
+				// BuildKit not available, return empty cache
+				buildCache = []*types.BuildCache{}
+				return nil
+			}
 			var err error
 			buildCache, err = s.builder.DiskUsage(ctx)
 			if err != nil {

@@ -61,6 +61,9 @@ func (b *Backend) Build(ctx context.Context, config backend.BuildConfig) (string
 
 	var build *builder.Result
 	if useBuildKit {
+		if b.buildkit == nil {
+			return "", errors.New("buildkit is not available in this build")
+		}
 		build, err = b.buildkit.Build(ctx, config)
 		if err != nil {
 			return "", err
@@ -98,6 +101,10 @@ func (b *Backend) Build(ctx context.Context, config backend.BuildConfig) (string
 
 // PruneCache removes all cached build sources
 func (b *Backend) PruneCache(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
+	if b.buildkit == nil {
+		// BuildKit not available, return empty report
+		return &types.BuildCachePruneReport{}, nil
+	}
 	buildCacheSize, cacheIDs, err := b.buildkit.Prune(ctx, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to prune build cache")
@@ -112,6 +119,9 @@ func (b *Backend) PruneCache(ctx context.Context, opts types.BuildCachePruneOpti
 
 // Cancel cancels the build by ID
 func (b *Backend) Cancel(ctx context.Context, id string) error {
+	if b.buildkit == nil {
+		return nil
+	}
 	return b.buildkit.Cancel(ctx, id)
 }
 
